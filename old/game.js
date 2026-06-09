@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let diceCounter = 0;
     const BAG_LIMIT = 15;
     let draggedDie = null;
-    let selectedDie = null;
 
     let playerHp = 20;
     let currentWave = 1;
@@ -29,16 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalRunScore = 0;
 
     const ENEMY_VARIANTS = [
-        { emoji: '👹', name: 'Ogro',       image: 'assets/enemies/ogro.png',       border: '#e74c3c' },
-        { emoji: '💀', name: 'Calavera',   image: 'assets/enemies/calavera.png',   border: '#9b59b6' },
-        { emoji: '🐲', name: 'Dragón',     image: 'assets/enemies/dragon.png',     border: '#e67e22' },
-        { emoji: '🧟', name: 'Zombi',      image: 'assets/enemies/zombi.png',      border: '#27ae60' },
-        { emoji: '🦇', name: 'Murciélago', image: 'assets/enemies/murcielago.png', border: '#2c3e50' },
-        { emoji: '🕷️', name: 'Araña',      image: 'assets/enemies/arana.png',      border: '#8e44ad' },
-        { emoji: '👾', name: 'Alien',      image: 'assets/enemies/alien.png',      border: '#16a085' },
-        { emoji: '🧙', name: 'Brujo',      image: 'assets/enemies/brujo.png',      border: '#c0392b' },
-        { emoji: '🐍', name: 'Serpiente',  image: 'assets/enemies/serpiente.png',  border: '#2ecc71' },
-        { emoji: '🦂', name: 'Escorpión',  image: 'assets/enemies/escorpion.png',  border: '#f39c12' },
+        { emoji: '👹', name: 'Ogro',      border: '#e74c3c' },
+        { emoji: '💀', name: 'Calavera',  border: '#9b59b6' },
+        { emoji: '🐲', name: 'Dragón',    border: '#e67e22' },
+        { emoji: '🧟', name: 'Zombi',     border: '#27ae60' },
+        { emoji: '🦇', name: 'Murciélago',border: '#2c3e50' },
+        { emoji: '🕷️', name: 'Araña',    border: '#8e44ad' },
+        { emoji: '👾', name: 'Alien',     border: '#16a085' },
+        { emoji: '🧙', name: 'Brujo',     border: '#c0392b' },
+        { emoji: '🐍', name: 'Serpiente', border: '#2ecc71' },
+        { emoji: '🦂', name: 'Escorpión', border: '#f39c12' },
     ];
 
     // Tablero 5x5
@@ -103,8 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const hpValue = baseHp + Math.floor(currentWave * 0.8);
             enemy.dataset.hp = hpValue;
             enemy.dataset.emoji = variant.emoji;
-            enemy.dataset.name = variant.name;
-            enemy.dataset.image = variant.image;
 
             let shieldValue = 0;
             if (currentWave >= 2) {
@@ -112,22 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             enemy.dataset.shield = shieldValue;
 
-            const imgEl = document.createElement('img');
-            imgEl.classList.add('enemy-image');
-            imgEl.src = variant.image;
-            imgEl.alt = variant.name;
-            imgEl.draggable = false;
-
             const emojiEl = document.createElement('span');
-            emojiEl.classList.add('enemy-emoji', 'enemy-fallback');
+            emojiEl.classList.add('enemy-emoji');
             emojiEl.innerText = variant.emoji;
-
-            imgEl.addEventListener('error', () => {
-                imgEl.remove();
-                emojiEl.classList.remove('enemy-fallback');
-            });
-
-            enemy.appendChild(imgEl);
             enemy.appendChild(emojiEl);
 
             const barsContainer = document.createElement('div');
@@ -196,11 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
         die.addEventListener('dragend', () => {
             draggedDie = null;
             clearPreviews();
-        });
-
-        die.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectDie(die);
         });
 
         die.addEventListener('dblclick', () => {
@@ -274,89 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SELECCIÓN TÁCTIL Y DRAG AND DROP CON PREVISUALIZACIÓN TÁCTICA ---
-
-    function selectDie(die) {
-        if (selectedDie === die) {
-            die.classList.remove('selected');
-            selectedDie = null;
-            return;
-        }
-
-        if (selectedDie) selectedDie.classList.remove('selected');
-        selectedDie = die;
-        selectedDie.classList.add('selected');
-    }
-
-    function clearSelectedDie() {
-        if (selectedDie) selectedDie.classList.remove('selected');
-        selectedDie = null;
-    }
-
-    function moveDieToZone(die, zone, zoneType) {
-        if (!die) return false;
-
-        if (zoneType === 'silver' && die.dataset.type !== 'silver') return false;
-        if (zoneType !== 'silver' && zoneType !== 'hand' && zoneType !== 'bag' && die.dataset.type === 'silver') return false;
-        if (zoneType === 'board' && zone.children.length > 0) return false;
-
-        if (zoneType === 'bag') {
-            if (theBag.children.length >= BAG_LIMIT && die.parentElement !== theBag) {
-                const canMerge = Array.from(theBag.children).some(bDie =>
-                    bDie.dataset.type === die.dataset.type &&
-                    bDie.dataset.value === die.dataset.value &&
-                    parseInt(bDie.dataset.value) < 6
-                );
-                if (!canMerge) {
-                    alert(`La Bolsa está llena (Máximo ${BAG_LIMIT} dados sin combinar)`);
-                    return false;
-                }
-            }
-        }
-
-        if (zoneType === 'silver') {
-            if (zone.querySelectorAll('.dice').length > 0) {
-                const existing = zone.querySelector('.dice');
-                if (existing && existing.dataset.type === die.dataset.type && existing.dataset.value === die.dataset.value && parseInt(existing.dataset.value) < 6) {
-                    const newVal = parseInt(existing.dataset.value) + 1;
-                    existing.dataset.value = newVal;
-                    existing.innerText = newVal;
-                    existing.style.transition = 'transform 0.15s ease';
-                    existing.style.transform = 'scale(1.4)';
-                    setTimeout(() => existing.style.transform = 'scale(1)', 200);
-                    die.remove();
-                    updateSilverBoostDisplay();
-                    clearSelectedDie();
-                    return true;
-                }
-                return false;
-            }
-        }
-
-        zone.appendChild(die);
-
-        if (zoneType === 'bag') {
-            runFusions(theBag, 'bag');
-        } else if (zoneType === 'hand') {
-            if (toggleHandFusion && toggleHandFusion.checked) {
-                runFusions(currentHand, 'hand');
-            }
-        } else if (zoneType === 'silver') {
-            if (toggleSilverFusion && toggleSilverFusion.checked) {
-                runFusions(null, 'silver-panel');
-            }
-            updateSilverBoostDisplay();
-        }
-
-        clearSelectedDie();
-        return true;
-    }
+    // --- DRAG AND DROP Y PREVISUALIZACIÓN TÁCTICA ---
 
     function setupDropZone(zone, zoneType) {
-        zone.addEventListener('click', () => {
-            if (selectedDie) moveDieToZone(selectedDie, zone, zoneType);
-        });
-
         zone.addEventListener('dragover', (e) => {
             e.preventDefault();
 
@@ -413,7 +312,57 @@ document.addEventListener('DOMContentLoaded', () => {
             const die = document.getElementById(dieId);
             if (!die) return;
 
-            moveDieToZone(die, zone, zoneType);
+            if (zoneType === 'silver' && die.dataset.type !== 'silver') return;
+            if (zoneType !== 'silver' && zoneType !== 'hand' && zoneType !== 'bag' && die.dataset.type === 'silver') return;
+            if (zoneType === 'board' && zone.children.length > 0) return;
+
+            if (zoneType === 'bag') {
+                if (theBag.children.length >= BAG_LIMIT && die.parentElement !== theBag) {
+                    const canMerge = Array.from(theBag.children).some(bDie =>
+                        bDie.dataset.type === die.dataset.type &&
+                        bDie.dataset.value === die.dataset.value &&
+                        parseInt(bDie.dataset.value) < 6
+                    );
+                    if (!canMerge) {
+                        alert(`La Bolsa está llena (Máximo ${BAG_LIMIT} dados sin combinar)`);
+                        return;
+                    }
+                }
+            }
+
+            // MODIFICADO: Fusión unificada en el slot de reliquias manual y auto
+            if (zoneType === 'silver') {
+                if (zone.querySelectorAll('.dice').length > 0) {
+                    const existing = zone.querySelector('.dice');
+                    if (existing && existing.dataset.type === die.dataset.type && existing.dataset.value === die.dataset.value && parseInt(existing.dataset.value) < 6) {
+                        const newVal = parseInt(existing.dataset.value) + 1;
+                        existing.dataset.value = newVal;
+                        existing.innerText = newVal;
+                        existing.style.transition = 'transform 0.15s ease';
+                        existing.style.transform = 'scale(1.4)';
+                        setTimeout(() => existing.style.transform = 'scale(1)', 200);
+                        die.remove();
+                        updateSilverBoostDisplay();
+                        return;
+                    }
+                    return;
+                }
+            }
+
+            zone.appendChild(die);
+
+            if (zoneType === 'bag') {
+                runFusions(theBag, 'bag');
+            } else if (zoneType === 'hand') {
+                if (toggleHandFusion && toggleHandFusion.checked) {
+                    runFusions(currentHand, 'hand');
+                }
+            } else if (zoneType === 'silver') {
+                if (toggleSilverFusion && toggleSilverFusion.checked) {
+                    runFusions(null, 'silver-panel');
+                }
+                updateSilverBoostDisplay();
+            }
         });
     }
 

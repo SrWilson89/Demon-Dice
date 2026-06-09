@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wooden Dice Tactics</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-wrapper">
+        <header>
+            <h1>Dice Tactics</h1>
+            <button id="end-turn-btn">Ejecutar Ronda</button>
+        </header>
+
+        <main id="board-area">
+            <aside id="silver-panel">
+                <!-- MODIFICADO: Contenedor con switch deslizante para reliquias -->
+                <div class="panel-header-container">
+                    <h2>Reliquias</h2>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-silver-fusion" checked>
+                        <span class="slider silver-slider"></span>
+                    </label>
+                </div>
+                <!-- MODIFICADO: Indicador en tiempo real del poder acumulado -->
+                <div id="silver-boost-text">Bono Daño: +0%</div>
+
+                <div id="silver-slots" class="slots-container">
+                    <div class="slot silver-slot" data-type="silver-slot"></div>
+                    <div class="slot silver-slot" data-type="silver-slot"></div>
+                    <div class="slot silver-slot" data-type="silver-slot"></div>
+                    <div class="slot silver-slot" data-type="silver-slot"></div>
+                </div>
+
+                <div id="dice-guide">
+                    <h3>Efectos</h3>
+                    <ul class="guide-list">
+                        <li>
+                            <span class="guide-dot green"></span>
+                            <div><strong>Verde:</strong> Horizontal</div>
+                        </li>
+                        <li>
+                            <span class="guide-dot blue"></span>
+                            <div><strong>Azul:</strong> Vertical</div>
+                        </li>
+                        <li>
+                            <span class="guide-dot red"></span>
+                            <div><strong>Rojo:</strong> Cruz (Adyacentes)</div>
+                        </li>
+                        <li>
+                            <span class="guide-dot gold"></span>
+                            <div><strong>Oro:</strong> Área (3x3)</div>
+                        </li>
+                        <li>
+                            <span class="guide-dot orange"></span>
+                            <div><strong>Naranja:</strong> Diagonal</div>
+                        </li>
+                        <li>
+                            <span class="guide-dot silver"></span>
+                            <div><strong>Plata:</strong> Reliquia (Potenciador)</div>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+
+            <section id="main-grid" class="grid-5x5"></section>
+
+            <aside id="scoreboard-panel">
+                <h2>Registro Táctico</h2>
+                <div class="score-box">
+                    <p>Vida Jugador</p>
+                    <span id="player-hp">20</span><span class="max-hp">/20</span>
+                </div>
+                <!-- MODIFICADO: Nueva caja para la puntuación total acumulada -->
+                <div class="score-box highlight-score">
+                    <p>Puntuación Total</p>
+                    <span id="total-run-score">0</span>
+                </div>
+                <div class="score-box">
+                    <p>Oleada Actual</p>
+                    <span id="current-wave">1</span>
+                </div>
+                <div class="score-box">
+                    <p>Último Ataque</p>
+                    <span id="last-attack">0</span>
+                </div>
+                <div class="score-box">
+                    <h3>Top 5 Rondas</h3>
+                    <ol id="top-attacks-list">
+                        <li>-</li>
+                        <li>-</li>
+                        <li>-</li>
+                        <li>-</li>
+                        <li>-</li>
+                    </ol>
+                </div>
+            </aside>
+        </main>
+
+        <footer id="inventory-area">
+            <div class="inventory-panel">
+                <!-- MODIFICADO: Estructura de switch deslizante inspirada en image_bfa053.png -->
+                <div class="hand-header-container">
+                    <h2>Mano Actual</h2>
+                    <div class="toggle-container">
+                        <span class="toggle-text">Auto-fusión</span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-hand-fusion" checked>
+                            <span class="slider hand-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div id="current-hand" class="drop-zone hand-zone"></div>
+            </div>
+            
+            <div class="inventory-panel">
+                <h2>La Bolsa (Máx 15 dados)</h2>
+                <div id="the-bag" class="drop-zone bag-zone"></div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

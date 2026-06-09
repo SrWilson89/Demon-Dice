@@ -243,8 +243,8 @@ input:checked + .slider:before {
 
 /* Enemigos */
 .enemy {
-    width: 60px;
-    height: 60px;
+    width: 100%;
+    height: 100%;
     background: linear-gradient(135deg, #1a1a2e, #2c3e50);
     border: 2px solid #e74c3c;
     border-radius: 8px;
@@ -258,6 +258,16 @@ input:checked + .slider:before {
     pointer-events: none;
     gap: 2px;
     box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.05);
+    overflow: hidden;
+}
+
+.enemy-image {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
 
 .enemy-emoji {
@@ -270,14 +280,23 @@ input:checked + .slider:before {
     display: flex;
     gap: 3px;
     align-items: center;
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    justify-content: center;
+    z-index: 2;
 }
 
 .enemy .hp, .enemy .shield {
-    font-size: 0.7rem;
-    padding: 1px 4px;
-    border-radius: 3px;
+    font-size: 0.65rem;
+    padding: 1px 3px;
+    border-radius: 2px;
     font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
+
 .enemy .hp { background: #e74c3c; }
 .enemy .shield { background: #2980b9; }
 

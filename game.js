@@ -1,3 +1,5 @@
+import { ENEMY_VARIANTS, BAG_LIMIT, playerHp, currentWave, totalRoundsPlayed, topScores, totalRunScore, silverBonusMultiplier, extraStartingDice, SPECIAL_DICE_VARIANT, setPlayerHp, setCurrentWave, setTotalRoundsPlayed, setTopScores, setTotalRunScore, setBagLimit, setSilverBonusMultiplier, setExtraStartingDice, getSilverMultiplier, updateScoreboard, triggerGameOver, saveGameState, loadGameState, spawnEnemies } from './game_logic.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const mainGrid = document.getElementById('main-grid');
     const currentHand = document.getElementById('current-hand');
@@ -10,38 +12,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const topAttacksList = document.getElementById('top-attacks-list');
     const toggleHandFusion = document.getElementById('toggle-hand-fusion');
     
-    // NUEVOS ELEMENTOS CAPTURADOS
     const toggleSilverFusion = document.getElementById('toggle-silver-fusion');
     const silverBoostText = document.getElementById('silver-boost-text');
-    const totalRunScoreDisplay = document.getElementById('total-run-score');
+    const totalRunScoreDisplay = document.getElementById("total-run-score");
+    const bagLimitDisplay = document.getElementById("bag-limit-display");
+    const bagCurrentCountDisplay = document.getElementById("bag-current-count");
+
+    const saveGameBtn = document.getElementById("save-game-btn");
+    const loadGameBtn = document.getElementById("load-game-btn");
+    const restartGameBtn = document.getElementById("restart-game-btn");
 
     let diceCounter = 0;
-    const BAG_LIMIT = 15;
     let draggedDie = null;
     let selectedDie = null;
 
-    let playerHp = 20;
-    let currentWave = 1;
-    let totalRoundsPlayed = 0;
-    let topScores = [];
-    
-    // NUEVA VARIABLE DE SCORE TOTAL
-    let totalRunScore = 0;
+    // --- UI para Recompensas ---
+    const rewardModal = document.createElement('div');
+    rewardModal.id = 'reward-modal';
+    rewardModal.style.cssText = `
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0s, opacity 0.3s ease;
+    `;
+    rewardModal.innerHTML = `
+        <div style="background: var(--wood-base); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid var(--wood-dark); max-width: 600px; width: 90%;">
+            <h2 style="color: var(--wood-highlight); margin-bottom: 20px;">¡Oleada ${currentWave} Completada! Elige una recompensa:</h2>
+            <div id="reward-options" style="display: flex; justify-content: space-around; gap: 20px; flex-wrap: wrap;"></div>
+        </div>
+    `;
+    document.body.appendChild(rewardModal);
 
-    const ENEMY_VARIANTS = [
-        { emoji: '👹', name: 'Ogro',       image: 'assets/enemies/ogro.png',       border: '#e74c3c' },
-        { emoji: '💀', name: 'Calavera',   image: 'assets/enemies/calavera.png',   border: '#9b59b6' },
-        { emoji: '🐲', name: 'Dragón',     image: 'assets/enemies/dragon.png',     border: '#e67e22' },
-        { emoji: '🧟', name: 'Zombi',      image: 'assets/enemies/zombi.png',      border: '#27ae60' },
-        { emoji: '🦇', name: 'Murciélago', image: 'assets/enemies/murcielago.png', border: '#2c3e50' },
-        { emoji: '🕷️', name: 'Araña',      image: 'assets/enemies/arana.png',      border: '#8e44ad' },
-        { emoji: '👾', name: 'Alien',      image: 'assets/enemies/alien.png',      border: '#16a085' },
-        { emoji: '🧙', name: 'Brujo',      image: 'assets/enemies/brujo.png',      border: '#c0392b' },
-        { emoji: '🐍', name: 'Serpiente',  image: 'assets/enemies/serpiente.png',  border: '#2ecc71' },
-        { emoji: '🦂', name: 'Escorpión',  image: 'assets/enemies/escorpion.png',  border: '#f39c12' },
-    ];
+    const rewardOptionsContainer = document.getElementById('reward-options');
 
-    // Tablero 5x5
+    // --- Inicialización del tablero ---
     for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
             const cell = document.createElement('div');
@@ -57,22 +67,86 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDropZone(currentHand, 'hand');
     setupDropZone(theBag, 'bag');
 
-    startRound();
-    endTurnBtn.addEventListener('click', executeTurn);
+    // --- Cargar estado del juego al inicio ---
+    const savedGameState = loadGameState();
+    if (savedGameState) {
+        setPlayerHp(savedGameState.playerHp);
+        setCurrentWave(savedGameState.currentWave);
+        setTotalRoundsPlayed(savedGameState.totalRoundsPlayed);
+        setTopScores(savedGameState.topScores);
+        setTotalRunScore(savedGameState.totalRunScore);
+        setBagLimit(savedGameState.BAG_LIMIT);
+        setSilverBonusMultiplier(savedGameState.silverBonusMultiplier);
+        setExtraStartingDice(savedGameState.extraStartingDice);
 
-    // --- CALCULO DINÁMICO DE MULTIPLIPLICADOR PLATA ---
-    function getSilverMultiplier() {
-        const silverDice = document.querySelectorAll('.silver-slot .dice');
-        let totalValue = 0;
-        silverDice.forEach(die => {
-            totalValue += parseInt(die.dataset.value) || 0;
+        playerHpDisplay.innerText = playerHp;
+        currentWaveDisplay.innerText = currentWave;
+        totalRunScoreDisplay.innerText = totalRunScore;
+        bagLimitDisplay.innerText = BAG_LIMIT;
+        bagCurrentCountDisplay.innerText = savedGameState.bagState.length;
+        updateScoreboard(0, lastAttackDisplay, topAttacksList); // Actualizar top scores
+
+        // Restaurar tablero
+        savedGameState.boardState.forEach((cellState, index) => {
+            const cell = mainGrid.children[index];
+            if (cellState.enemy) {
+                const enemy = createEnemyElement(cellState.enemy);
+                cell.appendChild(enemy);
+            }
+            if (cellState.die) {
+                const die = createDieElement(cellState.die);
+                cell.appendChild(die);
+            }
         });
-        // Cada punto de valor sumado en los dados de plata añade un +25% de daño base
-        return 1 + (totalValue * 0.25);
+
+        // Restaurar mano
+        savedGameState.handState.forEach(dieState => {
+            currentHand.appendChild(createDieElement(dieState));
+        });
+
+        // Restaurar bolsa
+        savedGameState.bagState.forEach(dieState => {
+            theBag.appendChild(createDieElement(dieState));
+        });
+
+        // Restaurar slots de plata
+        document.querySelectorAll('.silver-slot').forEach((slot, index) => {
+            const dieState = savedGameState.silverSlotsState[index];
+            if (dieState) {
+                slot.appendChild(createDieElement(dieState));
+            }
+        });
+
+    } else {
+        startRound();
     }
 
+    endTurnBtn.addEventListener("click", executeTurn);
+    saveGameBtn.addEventListener("click", () => {
+        saveGameState();
+        alert("Partida guardada!");
+    });
+    loadGameBtn.addEventListener("click", () => {
+        if (confirm("¿Estás seguro de que quieres cargar la partida? Perderás el progreso actual.")) {
+            location.reload(); // Recargar la página para aplicar el estado cargado
+        }
+    });
+
+    restartGameBtn.addEventListener("click", () => {
+        if (confirm("¿Estás seguro de que quieres reiniciar el juego? Perderás todo el progreso actual.")) {
+            resetGame();
+        }
+    });
+
+    function resetGame() {
+        localStorage.removeItem("demonDiceGameState");
+        location.reload();
+    }
+
+    // --- CALCULO DINÁMICO DE MULTIPLICADOR PLATA ---
     function updateSilverBoostDisplay() {
-        const mult = getSilverMultiplier();
+        const silverDice = document.querySelectorAll('.silver-slot .dice');
+        const mult = getSilverMultiplier(silverDice);
         const boostPercent = Math.round((mult - 1) * 100);
         if (silverBoostText) {
             silverBoostText.innerText = `Bono Daño: +${boostPercent}%`;
@@ -80,78 +154,112 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startRound() {
-        spawnEnemies();
+        spawnEnemies(mainGrid, currentWave, createEnemyElement);
         drawHand();
         updateSilverBoostDisplay();
+        saveGameState(); // Guardar estado al inicio de cada ronda
     }
 
-    function spawnEnemies() {
-        const cells = Array.from(document.querySelectorAll('.grid-cell'));
-        const emptySpawnCells = cells.filter(cell => parseInt(cell.dataset.col) === 4 && cell.children.length === 0);
-        if (emptySpawnCells.length === 0) return;
+    function createEnemyElement(enemyData) {
+        const variant = ENEMY_VARIANTS.find(v => v.emoji === enemyData.emoji); // Buscar la variante original para el borde y la imagen
+        const enemy = document.createElement('div');
+        enemy.classList.add('enemy');
+        enemy.style.borderColor = variant ? variant.border : '#ccc'; // Usar el borde de la variante o un fallback
+        enemy.dataset.hp = enemyData.hp;
+        enemy.dataset.maxHp = enemyData.maxHp || enemyData.hp; // Asegurar que maxHp esté presente
+        enemy.dataset.shield = enemyData.shield;
+        enemy.dataset.emoji = enemyData.emoji;
+        enemy.dataset.name = enemyData.name;
+        enemy.dataset.image = enemyData.image;
+        if (enemyData.ability) enemy.dataset.ability = enemyData.ability;
+        if (enemyData.poisoned) enemy.dataset.poisoned = enemyData.poisoned;
+        if (enemyData.poisonDamage) enemy.dataset.poisonDamage = enemyData.poisonDamage;
 
-        const numToSpawn = Math.min(emptySpawnCells.length, Math.floor(Math.random() * 2) + 1 + (currentWave > 4 ? 1 : 0));
-        emptySpawnCells.sort(() => Math.random() - 0.5);
+        const imgEl = document.createElement('img');
+        imgEl.classList.add('enemy-image');
+        imgEl.src = enemyData.image;
+        imgEl.alt = enemyData.name;
+        imgEl.draggable = false;
 
-        for (let i = 0; i < numToSpawn; i++) {
-            const variant = ENEMY_VARIANTS[Math.floor(Math.random() * ENEMY_VARIANTS.length)];
-            const enemy = document.createElement('div');
-            enemy.classList.add('enemy');
-            enemy.style.borderColor = variant.border;
-            
-            const baseHp = Math.floor(Math.random() * 4) + 3;
-            const hpValue = baseHp + Math.floor(currentWave * 0.8);
-            enemy.dataset.hp = hpValue;
-            enemy.dataset.emoji = variant.emoji;
-            enemy.dataset.name = variant.name;
-            enemy.dataset.image = variant.image;
+        const emojiEl = document.createElement('span');
+        emojiEl.classList.add('enemy-emoji', 'enemy-fallback');
+        emojiEl.innerText = enemyData.emoji;
 
-            let shieldValue = 0;
-            if (currentWave >= 2) {
-                shieldValue = Math.floor(currentWave / 2) + (Math.random() > 0.5 ? 1 : 0);
-            }
-            enemy.dataset.shield = shieldValue;
+        imgEl.addEventListener('error', () => {
+            imgEl.remove();
+            emojiEl.classList.remove('enemy-fallback');
+        });
 
-            const imgEl = document.createElement('img');
-            imgEl.classList.add('enemy-image');
-            imgEl.src = variant.image;
-            imgEl.alt = variant.name;
-            imgEl.draggable = false;
+        enemy.appendChild(imgEl);
+        enemy.appendChild(emojiEl);
 
-            const emojiEl = document.createElement('span');
-            emojiEl.classList.add('enemy-emoji', 'enemy-fallback');
-            emojiEl.innerText = variant.emoji;
+        const barsContainer = document.createElement('div');
+        barsContainer.classList.add('enemy-bars');
 
-            imgEl.addEventListener('error', () => {
-                imgEl.remove();
-                emojiEl.classList.remove('enemy-fallback');
-            });
-
-            enemy.appendChild(imgEl);
-            enemy.appendChild(emojiEl);
-
-            const barsContainer = document.createElement('div');
-            barsContainer.classList.add('enemy-bars');
-
-            if (shieldValue > 0) {
-                const shieldDisplay = document.createElement('span');
-                shieldDisplay.classList.add('shield');
-                shieldDisplay.innerText = shieldValue;
-                barsContainer.appendChild(shieldDisplay);
-            }
-
-            const hpDisplay = document.createElement('span');
-            hpDisplay.classList.add('hp');
-            hpDisplay.innerText = hpValue;
-            barsContainer.appendChild(hpDisplay);
-            
-            enemy.appendChild(barsContainer);
-            emptySpawnCells[i].appendChild(enemy);
+        if (enemyData.shield > 0) {
+            const shieldDisplay = document.createElement('span');
+            shieldDisplay.classList.add('shield');
+            shieldDisplay.innerText = enemyData.shield;
+            barsContainer.appendChild(shieldDisplay);
         }
+
+        const hpDisplay = document.createElement('span');
+        hpDisplay.classList.add('hp');
+        hpDisplay.innerText = enemyData.hp;
+        barsContainer.appendChild(hpDisplay);
+        
+        enemy.appendChild(barsContainer);
+        return enemy;
     }
+
+    function createDieElement(dieData) {
+        const die = document.createElement('div');
+        die.classList.add('dice', dieData.type);
+        die.id = `die-${diceCounter++}`;
+        die.draggable = true;
+        die.dataset.type = dieData.type;
+        die.dataset.value = dieData.value;
+        die.innerText = dieData.value;
+
+        die.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', e.target.id);
+            draggedDie = e.target;
+        });
+
+        die.addEventListener('dragend', () => {
+            draggedDie = null;
+            clearPreviews();
+        });
+
+        die.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectDie(die);
+        });
+
+        die.addEventListener('dblclick', () => {
+            const parent = die.parentElement;
+            if (!parent) return;
+            let zoneType = '';
+            if (parent === currentHand) zoneType = 'hand';
+            else if (parent === theBag) zoneType = 'bag';
+            else if (parent.classList.contains('silver-slot')) zoneType = 'silver';
+            if (zoneType) {
+                runFusions(parent, zoneType);
+            }
+        });
+        return die;
+    }
+
+
+
+
+    // Función createEnemyElement y createDieElement se mantienen en game.js por ahora
+
+    // Función drawHand se moverá después
 
     function drawHand() {
-        for (let i = 0; i < 3; i++) {
+        const diceToDraw = 3 + extraStartingDice;
+        for (let i = 0; i < diceToDraw; i++) {
             const die = createDie();
             currentHand.appendChild(die);
             
@@ -159,34 +267,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkZoneFusions(currentHand, 'hand');
             }
         }
+
+        // Añadir dado especial cada 20 oleadas
+        if (currentWave > 0 && currentWave % 20 === 0) {
+            const specialDie = createDie(true); // Pasar true para indicar que es un dado especial
+            currentHand.appendChild(specialDie);
+        }
     }
 
-    function createDie() {
+    function createDie(isSpecial = false) {
         const die = document.createElement('div');
         die.classList.add('dice');
         die.id = `die-${diceCounter++}`;
         die.draggable = true;
 
-        const rand = Math.random();
-        let type = '';
-        if (rand < 0.12) type = 'silver';
-        else if (rand < 0.24) type = 'gold';
-        else if (rand < 0.36) type = 'orange'; 
-        else if (rand < 0.56) type = 'red';
-        else if (rand < 0.76) type = 'blue';
-        else type = 'green';
-
+        let type;
         let value;
-        if (type === 'silver') {
-            value = Math.floor(Math.random() * 3) + 1;
+
+        if (isSpecial) {
+            type = SPECIAL_DICE_VARIANT.type;
+            value = Math.floor(Math.random() * (SPECIAL_DICE_VARIANT.damageRange[1] - SPECIAL_DICE_VARIANT.damageRange[0] + 1)) + SPECIAL_DICE_VARIANT.damageRange[0];
+            die.classList.add(type);
+            die.innerText = SPECIAL_DICE_VARIANT.emoji;
         } else {
-            value = Math.floor(Math.random() * 6) + 1;
+            const rand = Math.random();
+            if (rand < 0.12) type = 'silver';
+            else if (rand < 0.24) type = 'gold';
+            else if (rand < 0.36) type = 'orange'; 
+            else if (rand < 0.56) type = 'red';
+            else if (rand < 0.76) type = 'blue';
+            else type = 'green';
+
+            if (type === 'silver') {
+                value = Math.floor(Math.random() * 3) + 1;
+            } else {
+                value = Math.floor(Math.random() * 6) + 1;
+            }
+            die.classList.add(type);
+            die.innerText = value;
         }
         
-        die.classList.add(type);
         die.dataset.type = type;
         die.dataset.value = value;
-        die.innerText = value;
 
         die.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', e.target.id);
@@ -296,6 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function moveDieToZone(die, zone, zoneType) {
         if (!die) return false;
 
+        const originalParent = die.parentElement;
+        const wasInBag = originalParent === theBag;
+
         if (zoneType === 'silver' && die.dataset.type !== 'silver') return false;
         if (zoneType !== 'silver' && zoneType !== 'hand' && zoneType !== 'bag' && die.dataset.type === 'silver') return false;
         if (zoneType === 'board' && zone.children.length > 0) return false;
@@ -335,8 +460,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         zone.appendChild(die);
 
+        if (wasInBag && zone !== theBag) {
+            bagCurrentCountDisplay.innerText = theBag.children.length;
+        }
+
         if (zoneType === 'bag') {
             runFusions(theBag, 'bag');
+            bagCurrentCountDisplay.innerText = theBag.children.length;
         } else if (zoneType === 'hand') {
             if (toggleHandFusion && toggleHandFusion.checked) {
                 runFusions(currentHand, 'hand');
@@ -367,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const type = draggedDie.dataset.type;
                 if (type === 'silver') return;
 
-                const multiplier = getSilverMultiplier();
+                const multiplier = getSilverMultiplier(document.querySelectorAll('.silver-slot .dice'));
                 const baseDamage = parseInt(draggedDie.dataset.value);
                 const finalDamage = Math.floor(baseDamage * multiplier);
 
@@ -395,6 +525,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 enemy.appendChild(dmgPreview);
                             }
                             dmgPreview.innerText = `-${finalDamage}`;
+
+                            // Previsualización de daño letal
+                            let enemyHp = parseInt(enemy.dataset.hp);
+                            let enemyShield = parseInt(enemy.dataset.shield) || 0;
+                            let effectiveDamage = finalDamage - enemyShield;
+                            if (effectiveDamage >= enemyHp) {
+                                enemy.classList.add('lethal-hit-preview');
+                            } else {
+                                enemy.classList.remove('lethal-hit-preview');
+                            }
                         }
                     }
                 });
@@ -420,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearPreviews() {
         document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('preview-hit'));
         document.querySelectorAll('.preview-damage').forEach(el => el.remove());
+        document.querySelectorAll('.enemy').forEach(enemy => enemy.classList.remove('lethal-hit-preview'));
     }
 
     // --- MOTOR DE COMBATE ---
@@ -439,17 +580,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (canMerge) {
                     theBag.appendChild(die);
                     runFusions(theBag, 'bag');
+                    bagCurrentCountDisplay.innerText = theBag.children.length;
                 } else {
                     die.remove(); 
+                    bagCurrentCountDisplay.innerText = theBag.children.length; // Actualizar después de procesar los dados restantes
                 }
             }
         });
 
-        let multiplier = getSilverMultiplier();
+        let multiplier = getSilverMultiplier(document.querySelectorAll('.silver-slot .dice'));
 
         const cells = Array.from(document.querySelectorAll('.grid-cell'));
         let attacks = [];
         let totalDamageThisTurn = 0;
+
+        // Aplicar daño de veneno al inicio del turno
+        cells.forEach(cell => {
+            const enemy = cell.querySelector(".enemy");
+            if (enemy && enemy.dataset.poisoned === "true") {
+                let poisonDamage = parseInt(enemy.dataset.poisonDamage) || 1;
+                let hp = parseInt(enemy.dataset.hp);
+                hp -= poisonDamage;
+                enemy.dataset.hp = hp;
+                enemy.querySelector(".hp").innerText = hp;
+
+                // Actualizar visualmente el daño de veneno
+                const dmgDisplay = document.createElement("span");
+                dmgDisplay.classList.add("preview-damage", "poison-damage");
+                dmgDisplay.innerText = `-${poisonDamage} (Veneno)`;
+                enemy.appendChild(dmgDisplay);
+                setTimeout(() => dmgDisplay.remove(), 800);
+
+                if (hp <= 0) {
+                    enemy.classList.add("lethal-hit");
+                    setTimeout(() => enemy.remove(), 300);
+                }
+            }
+        });
 
         cells.forEach(cell => {
             const die = cell.querySelector('.dice');
@@ -475,6 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (attack.type === 'red' && (Math.abs(tr - attack.r) + Math.abs(tc - attack.c) <= 1)) isHit = true;
                 if (attack.type === 'gold' && Math.abs(tr - attack.r) <= 1 && Math.abs(tc - attack.c) <= 1) isHit = true;
                 if (attack.type === 'orange' && Math.abs(tr - attack.r) === 1 && Math.abs(tc - attack.c) === 1) isHit = true;
+                if (attack.type === 'special') isHit = true; // El dado especial golpea a todos los enemigos
                 
                 if (isHit) targets.push(targetCell);
             });
@@ -489,8 +657,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     let currentDmg = attack.damage;
                     let shield = parseInt(enemy.dataset.shield) || 0;
                     let hp = parseInt(enemy.dataset.hp);
+                    const enemyAbility = enemy.dataset.ability;
+
+                    // Habilidad: Evade (Murciélago)
+                    if (enemyAbility === 'evade' && Math.random() < 0.3) { // 30% de probabilidad de evadir
+                        // console.log(`${enemy.dataset.name} evadió el ataque!`);
+                        return; // El enemigo evade el daño
+                    }
+
+                    // Habilidad: Resist Area (Ogro)
+                    if (enemyAbility === 'resist_area' && (attack.type === 'gold' || attack.type === 'special')) {
+                        currentDmg = Math.floor(currentDmg * 0.5); // Reduce el daño de área a la mitad
+                    }
 
                     totalDamageThisTurn += currentDmg;
+
+
+
+                    // Habilidad: Poison (Serpiente)
+                    if (enemyAbility === 'poison' && attack.type === 'orange' && currentDmg > 0) { // Los dados naranjas envenenan
+                        enemy.dataset.poisoned = "true";
+                        enemy.dataset.poisonDamage = parseInt(enemy.dataset.poisonDamage || 0) + 1; // Aumenta el daño de veneno
+                        enemy.classList.add("poisoned");
+                    }
 
                     if (shield > 0) {
                         if (currentDmg >= shield) {
@@ -505,13 +694,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     hp -= currentDmg;
 
                     if (hp <= 0) {
-                        enemy.remove();
+                        enemy.classList.remove('lethal-hit-preview'); // Remover preview si el enemigo es eliminado
+                        enemy.classList.add('lethal-hit'); // Añadir clase para animación de daño letal
+                        setTimeout(() => enemy.remove(), 300);
                     } else {
                         enemy.dataset.hp = hp;
                         enemy.dataset.shield = shield;
                         const shieldSpan = enemy.querySelector('.shield');
                         if (shield > 0) {
                             if (shieldSpan) shieldSpan.innerText = shield;
+                            else {
+                                const newShieldSpan = document.createElement('span');
+                                newShieldSpan.classList.add('shield');
+                                newShieldSpan.innerText = shield;
+                                enemy.querySelector('.enemy-bars').prepend(newShieldSpan);
+                            }
                         } else if (shieldSpan) {
                             shieldSpan.remove();
                         }
@@ -523,12 +720,11 @@ document.addEventListener('DOMContentLoaded', () => {
             attack.dieElement.remove();
         });
 
-        // ACTUALIZAR REGISTROS Y ACUMULAR PUNTUACIÓN GENERAL
         if (totalDamageThisTurn > 0) {
-            totalRunScore += totalDamageThisTurn;
+            setTotalRunScore(totalRunScore + totalDamageThisTurn);
             totalRunScoreDisplay.innerText = totalRunScore;
         }
-        updateScoreboard(totalDamageThisTurn);
+        updateScoreboard(totalDamageThisTurn, lastAttackDisplay, topAttacksList);
 
         setTimeout(() => {
             for (let r = 0; r < 5; r++) {
@@ -539,11 +735,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (enemy) {
                         if (c === 0) {
                             enemy.remove();
-                            playerHp--;
+                            setPlayerHp(playerHp - 1);
                             playerHpDisplay.innerText = playerHp;
 
                             if (playerHp <= 0) {
-                                triggerGameOver();
+                                triggerGameOver(totalRunScore);
                                 return;
                             }
                         } else {
@@ -556,10 +752,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            totalRoundsPlayed++;
+            setTotalRoundsPlayed(totalRoundsPlayed + 1);
             if (totalRoundsPlayed % 3 === 0) {
-                currentWave++;
+                setCurrentWave(currentWave + 1);
                 currentWaveDisplay.innerText = currentWave;
+
+                if (currentWave % 5 === 0) {
+                    triggerRewardSelection();
+                    return; // Detener el turno para la selección de recompensa
+                }
             }
 
             document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('attack-hit'));
@@ -567,47 +768,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 600);
     }
 
-    function updateScoreboard(damage) {
-        lastAttackDisplay.innerText = damage;
-        if (damage > 0) {
-            topScores.push(damage);
-            topScores.sort((a, b) => b - a);
-            topScores = topScores.slice(0, 5);
+    function triggerRewardSelection() {
+        rewardModal.style.visibility = 'visible';
+        rewardModal.style.opacity = '1';
+        rewardOptionsContainer.innerHTML = '';
 
-            topAttacksList.innerHTML = '';
-            for (let i = 0; i < 5; i++) {
-                const li = document.createElement('li');
-                li.innerText = topScores[i] !== undefined ? `${topScores[i]} Ptos` : '-';
-                topAttacksList.appendChild(li);
-            }
-        }
+        const rewards = generateRewards();
+        rewards.forEach(reward => {
+            const rewardDiv = document.createElement('div');
+            rewardDiv.classList.add('reward-option');
+            rewardDiv.style.cssText = `
+                background: var(--wood-light);
+                padding: 15px;
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                width: 150px;
+                text-align: center;
+                color: var(--wood-dark);
+                font-weight: bold;
+            `;
+            rewardDiv.innerHTML = `<h3>${reward.name}</h3><p>${reward.description}</p>`;
+            rewardDiv.addEventListener('click', () => applyReward(reward));
+            rewardOptionsContainer.appendChild(rewardDiv);
+        });
     }
 
-    // --- NUEVO SISTEMA LOCALSTORAGE: FIN DE JUEGO (TOP 10) ---
-    function triggerGameOver() {
-        // Recuperar registros del navegador o crear un arreglo vacío
-        let localLeaderboard = JSON.parse(localStorage.getItem('dice_tactics_leaderboard')) || [];
-        
-        // Guardar la puntuación total actual
-        localLeaderboard.push(totalRunScore);
-        
-        // Organizar de mayor a menor y descartar a partir del puesto 10
-        localLeaderboard.sort((a, b) => b - a);
-        localLeaderboard = localLeaderboard.slice(0, 10);
-        
-        // Guardar la lista actualizada en el almacenamiento local
-        localStorage.setItem('dice_tactics_leaderboard', JSON.stringify(localLeaderboard));
+    function generateRewards() {
+        const availableRewards = [
+            { name: 'Vida Extra', description: '+5 HP', apply: () => setPlayerHp(playerHp + 5) },
+            { name: 'Bolsa Ampliada', description: '+3 Espacios en Bolsa', apply: () => setBagLimit(BAG_LIMIT + 3) },
+            { name: 'Multiplicador de Plata', description: '+0.1 Multiplicador Base', apply: () => setSilverBonusMultiplier(silverBonusMultiplier + 0.1) },
+            { name: 'Dado Inicial Extra', description: '+1 Dado al inicio de cada ronda', apply: () => setExtraStartingDice(extraStartingDice + 1) }
+        ];
+        // Seleccionar 3 recompensas aleatorias
+        return availableRewards.sort(() => 0.5 - Math.random()).slice(0, 3);
+    }
 
-        // Preparar y pintar el panel del Top 10 histórico
-        let message = `💥 ¡JUEGO TERMINADO! Tu vida llegó a 0.\n\n`;
-        message += `🎯 Puntuación Total de esta partida: ${totalRunScore} Ptos\n\n`;
-        message += `🏆 TOP 10 HISTÓRICO DE PUNTAJES:\n`;
-        
-        localLeaderboard.forEach((score, index) => {
-            message += `${index + 1}.   ${score} Ptos ${score === totalRunScore ? '⭐ (Tu récord)' : ''}\n`;
-        });
-        
-        alert(message);
-        location.reload();
+    function applyReward(reward) {
+        reward.apply();
+        playerHpDisplay.innerText = playerHp;
+        bagLimitDisplay.innerText = BAG_LIMIT;
+        rewardModal.style.visibility = 'hidden';
+        rewardModal.style.opacity = '0';
+        startRound();
     }
 });

@@ -10,7 +10,12 @@
     <div id="game-wrapper">
         <header>
             <h1>Dice Tactics</h1>
-            <button id="end-turn-btn">Ejecutar Ronda</button>
+            <div>
+                <button id="save-game-btn">Guardar Partida</button>
+                <button id="load-game-btn">Cargar Partida</button>
+                <button id="restart-game-btn">Reiniciar Juego</button>
+                <button id="end-turn-btn">Ejecutar Ronda</button>
+            </div>
         </header>
 
         <main id="board-area">
@@ -115,12 +120,12 @@
             </div>
             
             <div class="inventory-panel">
-                <h2>La Bolsa (Máx 15 dados)</h2>
+                <h2>La Bolsa (<span id="bag-current-count">0</span>/<span id="bag-limit-display">15</span> dados)</h2>
                 <div id="the-bag" class="drop-zone bag-zone"></div>
             </div>
         </footer>
     </div>
 
-    <script src="game.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 </html>

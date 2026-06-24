@@ -512,6 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (type === 'red' && (Math.abs(tr - r) + Math.abs(tc - c) <= 1)) isHit = true;
                     if (type === 'gold' && Math.abs(tr - r) <= 1 && Math.abs(tc - c) <= 1) isHit = true;
                     if (type === 'orange' && Math.abs(tr - r) === 1 && Math.abs(tc - c) === 1) isHit = true;
+                    if (type === 'special') isHit = true; // El dado especial golpea a todos los enemigos
                     
                     if (isHit) {
                         targetCell.classList.add('preview-hit');
@@ -692,6 +693,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     hp -= currentDmg;
+
+                    // Mostrar el daño total infligido
+                    const dmgDisplay = document.createElement('span');
+                    dmgDisplay.classList.add('preview-damage');
+                    dmgDisplay.innerText = `-${currentDmg}`;
+                    enemy.appendChild(dmgDisplay);
+                    setTimeout(() => dmgDisplay.remove(), 800);
 
                     if (hp <= 0) {
                         enemy.classList.remove('lethal-hit-preview'); // Remover preview si el enemigo es eliminado

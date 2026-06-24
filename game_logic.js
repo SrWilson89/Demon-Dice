@@ -21,7 +21,7 @@ export let totalRunScore = 0;
 export let silverBonusMultiplier = 0; // Bonus base para el multiplicador de plata
 export let extraStartingDice = 0; // Dados extra al inicio de cada ronda
 
-export const SPECIAL_DICE_VARIANT = { type: 'special', emoji: '💥', name: 'Dado de Hito', damageRange: [3, 6] };
+export const SPECIAL_DICE_VARIANT = { type: 'special', emoji: '💥', name: 'Dado Demonio', damageRange: [4, 6] };
 
 export function setPlayerHp(value) { playerHp = value; }
 export function setCurrentWave(value) { currentWave = value; }
